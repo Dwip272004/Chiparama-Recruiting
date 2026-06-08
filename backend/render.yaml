@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: jd-parser-backend
+    runtime: node
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: IMAP_HOST
+        sync: false
+      - key: IMAP_PORT
+        sync: false
+      - key: IMAP_SECURE
+        sync: false
+      - key: IMAP_USER
+        sync: false
+      - key: IMAP_PASSWORD
+        sync: false
+      - key: IMAP_MAILBOX
+        value: INBOX
+      - key: POLL_INTERVAL_MS
+        value: "60000"
+      - key: JD_SUBJECT_KEYWORD
+        value: JD For Automation
