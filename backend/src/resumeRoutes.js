@@ -1,6 +1,9 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { Mistral } from "@mistralai/mistralai";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 const router = express.Router();
 
@@ -104,11 +107,31 @@ router.post("/parse-resume", requireAuth, async (req, res) => {
 
   if (dlErr) return res.status(400).json({ error: dlErr.message });
 
-  // Convert to text (PDF/Word are converted as plain text blobs by Supabase Storage)
-  const resumeText = await fileData.text();
+  // Extract text — use pdf-parse for PDFs, raw text() for everything else
+  let resumeText = "";
+  const contentType = candidate.resume_content_type ?? "";
+  const isPdf = contentType.includes("pdf") ||
+                candidate.resume_path?.toLowerCase().endsWith(".pdf");
+
+  try {
+    if (isPdf) {
+      const arrayBuffer = await fileData.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const parsed = await pdfParse(buffer);
+      resumeText = parsed.text ?? "";
+    } else {
+      resumeText = await fileData.text();
+    }
+  } catch (extractErr) {
+    return res.status(400).json({ error: `Text extraction failed: ${extractErr.message}` });
+  }
+
+  resumeText = resumeText.replace(/\s+/g, " ").trim();
 
   if (!resumeText || resumeText.length < 50) {
-    return res.status(400).json({ error: "Resume text too short to parse. PDF text extraction may have failed." });
+    return res.status(400).json({
+      error: "Could not extract readable text from this file. Try uploading a text-based PDF or a .docx file."
+    });
   }
 
   // Parse with Mistral
