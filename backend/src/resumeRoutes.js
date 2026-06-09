@@ -52,6 +52,8 @@ const RESUME_SCHEMA = {
           institution: { type: "string" },
           year:        { type: "string" },
         },
+        required: ["degree", "institution", "year"],
+        additionalProperties: false,
       },
     },
     parsed_experience: {
@@ -65,6 +67,8 @@ const RESUME_SCHEMA = {
           end:     { type: "string" },
           summary: { type: "string" },
         },
+        required: ["title", "company", "start", "end", "summary"],
+        additionalProperties: false,
       },
     },
     parsed_certifications: {
@@ -72,17 +76,28 @@ const RESUME_SCHEMA = {
       items: { type: "string" },
     },
   },
-  required: ["skills"],
+  required: [
+    "skills",
+    "parsed_experience",
+    "parsed_education",
+    "parsed_certifications",
+  ],
 };
 
-const RESUME_SYSTEM_PROMPT = `You are a resume parser. Extract structured information from the resume text.
-Rules:
-1. Extract all skills including technical tools, programming languages, frameworks, soft skills
-2. For experience_years, calculate total professional years based on work history dates
-3. For work_authorization, if mentioned return: "US Citizen", "Green Card", "H1B", "OPT", "EAD", or "Other"
-4. For current_title and current_company, use the most recent/current position
-5. Return empty arrays for missing array fields, null for missing string fields
-6. Do not invent information — only extract what is explicitly stated`;
+const RESUME_SYSTEM_PROMPT = `You are an expert resume parser. Extract ALL structured data from the resume text.
+
+CRITICAL — you MUST populate these arrays (do not leave them empty unless truly absent):
+- parsed_experience: every job/role the candidate has held. Include title, company, start date, end date (or "Present"), and a 1-sentence summary of responsibilities.
+- parsed_education: every degree, diploma, or academic qualification. Include degree name, institution, and year (graduation or expected).
+- parsed_certifications: every professional certification, license, or credential mentioned.
+- skills: every technical tool, language, framework, platform, or professional skill.
+
+Other rules:
+- experience_years: calculate total professional years from work history dates (e.g. 2018–2024 = 6 years)
+- work_authorization: if mentioned return exactly one of: "US Citizen", "Green Card", "H1B", "OPT", "EAD", "Other"
+- current_title and current_company: use the most recent/current position
+- Return empty string "" for missing string scalars, empty array [] only when genuinely absent
+- Do NOT invent information — only extract what is explicitly written in the resume`;
 
 // ── POST /parse-resume ────────────────────────────────────────
 // Downloads resume from Supabase Storage, sends text to Mistral, updates candidate
@@ -127,6 +142,7 @@ router.post("/parse-resume", requireAuth, async (req, res) => {
   }
 
   resumeText = resumeText.replace(/\s+/g, " ").trim();
+  console.log(`[resume] candidate=${candidate_id} isPdf=${isPdf} textLen=${resumeText.length}`);
 
   if (!resumeText || resumeText.length < 50) {
     return res.status(400).json({
@@ -153,6 +169,7 @@ router.post("/parse-resume", requireAuth, async (req, res) => {
       },
     });
     parsed = JSON.parse(response.choices[0].message.content);
+    console.log(`[resume] Mistral returned: skills=${parsed.skills?.length ?? 0} experience=${parsed.parsed_experience?.length ?? 0} education=${parsed.parsed_education?.length ?? 0} certs=${parsed.parsed_certifications?.length ?? 0}`);
   } catch (err) {
     return res.status(500).json({ error: `Mistral parse error: ${err.message}` });
   }
@@ -190,7 +207,7 @@ router.post("/parse-resume", requireAuth, async (req, res) => {
 
   if (updateErr) return res.status(400).json({ error: updateErr.message });
 
-  console.log(`[resume] Parsed candidate ${candidate_id}: ${parsed.skills?.length ?? 0} skills extracted`);
+  console.log(`[resume] Saved candidate ${candidate_id}: ${parsed.skills?.length ?? 0} skills, ${parsed.parsed_experience?.length ?? 0} roles, ${parsed.parsed_education?.length ?? 0} education, ${parsed.parsed_certifications?.length ?? 0} certs`);
   res.json({ success: true, extracted: update });
 });
 

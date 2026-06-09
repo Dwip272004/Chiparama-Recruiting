@@ -423,6 +423,14 @@ function CandidateRow({ candidate, vendorId, onEdit, onRefresh }) {
       clearTimeout(timeout);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Parse failed");
+      const ex = json.extracted ?? {};
+      const summary = [
+        `${ex.parsed_skills?.length ?? 0} skills`,
+        `${ex.parsed_experience?.length ?? 0} work entries`,
+        `${ex.parsed_education?.length ?? 0} education`,
+        `${ex.parsed_certifications?.length ?? 0} certs`,
+      ].join(" · ");
+      alert(`Resume parsed! Extracted: ${summary}. Expand the row to see details.`);
       onRefresh();
     } catch (err) {
       if (err.name === "AbortError") {
