@@ -17,9 +17,13 @@ import { verifyTransporter } from "./emailService.js";
 const app = express();
 
 // Allow requests from the frontend (dev + production)
-const FRONTEND_ORIGIN = process.env.FRONTEND_URL ?? "http://localhost:5173";
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://chiparama-recruiting.vercel.app",
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+];
 app.use(cors({
-  origin: [FRONTEND_ORIGIN, "http://localhost:5173"],
+  origin: allowedOrigins,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
