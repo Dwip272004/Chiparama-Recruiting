@@ -30,7 +30,6 @@ const MATCH_SCHEMA = {
 };
 
 // POST /match-score
-// Scores a candidate submission against the job using Mistral
 router.post("/match-score", requireAuth, async (req, res) => {
   const { submission_id } = req.body;
   if (!submission_id) return res.status(400).json({ error: "submission_id required" });
@@ -41,7 +40,8 @@ router.post("/match-score", requireAuth, async (req, res) => {
       id,
       candidates(first_name, last_name, skills, parsed_skills, experience_years,
                  current_title, work_authorization, parsed_experience, parsed_certifications),
-      jobs(title, description, requirements, skills_required, experience_min_years)
+      jobs(title, description, top_skills, qualifications, special_requirements,
+           experience_years_min, employment_type, work_type)
     `)
     .eq("id", submission_id)
     .single();
@@ -51,31 +51,34 @@ router.post("/match-score", requireAuth, async (req, res) => {
   const { candidates: c, jobs: j } = sub;
 
   const combinedSkills = [...new Set([...(c?.skills ?? []), ...(c?.parsed_skills ?? [])])];
+  const jobSkills      = j?.top_skills ?? [];
+  const qualifications = (j?.qualifications ?? []).join("; ") || (j?.description ?? "").slice(0, 600);
 
-  const prompt = `You are an expert recruiter. Score how well this candidate matches the job opening.
+  const prompt = `You are an expert technical recruiter. Score how well this candidate matches the job.
 
 JOB:
 - Title: ${j?.title ?? "N/A"}
-- Description: ${(j?.description ?? "").slice(0, 1500)}
-- Requirements: ${(j?.requirements ?? "").slice(0, 800)}
-- Skills needed: ${(j?.skills_required ?? []).join(", ") || "Not specified"}
-- Min experience: ${j?.experience_min_years ?? "Not specified"} years
+- Type: ${j?.employment_type ?? ""} ${j?.work_type ?? ""}
+- Description: ${(j?.description ?? "").slice(0, 1200)}
+- Required skills: ${jobSkills.join(", ") || "Not specified"}
+- Qualifications: ${qualifications}
+- Min experience: ${j?.experience_years_min ?? "Not specified"} years
 
 CANDIDATE:
-- Name: ${c?.first_name ?? ""} ${c?.last_name ?? ""}
 - Title: ${c?.current_title ?? "N/A"}
 - Experience: ${c?.experience_years ?? "N/A"} years
-- Work auth: ${c?.work_authorization ?? "N/A"}
+- Work authorization: ${c?.work_authorization ?? "N/A"}
 - Skills: ${combinedSkills.slice(0, 40).join(", ") || "None listed"}
 - Past roles: ${(c?.parsed_experience ?? []).slice(0, 3).map(e => `${e.title} at ${e.company}`).join("; ") || "N/A"}
 - Certifications: ${(c?.parsed_certifications ?? []).join(", ") || "None"}
 
-Provide:
-- score: 0-100 match score
-- strengths: 2-3 specific matching points (be concrete)
-- gaps: 0-3 specific missing requirements (be concrete, empty array if strong match)
-- recommendation: one concise sentence summary`;
+Return:
+- score: 0–100 integer (100 = perfect fit)
+- strengths: 2–3 concrete matching points
+- gaps: 0–3 concrete missing requirements (empty array if strong match)
+- recommendation: one sentence summary`;
 
+  let result;
   try {
     const resp = await mistral.chat.complete({
       model:       "mistral-small-latest",
@@ -86,21 +89,24 @@ Provide:
         jsonSchema: { name: "match_score", schemaDefinition: MATCH_SCHEMA },
       },
     });
-
-    const result = JSON.parse(resp.choices[0].message.content);
-
-    // Persist score back to submission
-    await supabaseAdmin.from("submissions").update({
-      match_score:     result.score,
-      match_reasoning: result.recommendation,
-    }).eq("id", submission_id);
-
-    console.log(`[match] Submission ${submission_id}: score=${result.score}`);
-    res.json(result);
+    result = JSON.parse(resp.choices[0].message.content);
   } catch (err) {
-    console.error("[match-score]", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("[match-score] Mistral error:", err.message);
+    return res.status(500).json({ error: `AI scoring failed: ${err.message}` });
   }
+
+  // Persist score — non-blocking so missing columns don't kill the response
+  supabaseAdmin.from("submissions").update({
+    match_score:     result.score,
+    match_reasoning: result.recommendation,
+  }).eq("id", submission_id)
+    .then(({ error: dbErr }) => {
+      if (dbErr) console.warn("[match-score] DB save failed:", dbErr.message,
+        "— run phase4_schema.sql in Supabase if columns are missing");
+    });
+
+  console.log(`[match] Submission ${submission_id}: score=${result.score}`);
+  res.json(result);
 });
 
 export default router;

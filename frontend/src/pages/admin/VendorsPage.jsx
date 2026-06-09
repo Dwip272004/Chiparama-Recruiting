@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   Plus, Search, X, Loader, Users, Mail, Eye, EyeOff,
-  RefreshCw, Copy, CheckCircle2, KeyRound
+  RefreshCw, Copy, CheckCircle2, KeyRound, Trash2
 } from "lucide-react";
 
 const STATUS_BADGE = {
@@ -249,8 +249,11 @@ export default function VendorsPage() {
   const [vendors, setVendors]         = useState([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
+  const { session }                   = useAuth();
   const [showModal, setShowModal]     = useState(false);
-  const [credentials, setCredentials] = useState(null); // { email, password }
+  const [credentials, setCredentials] = useState(null);
+  const [deletingId, setDeletingId]   = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => { fetchVendors(); }, []);
 
@@ -267,6 +270,17 @@ export default function VendorsPage() {
   function handleCreated(vendor, email, password) {
     setShowModal(false);
     setCredentials({ email, password });
+    fetchVendors();
+  }
+
+  async function deleteVendor(id) {
+    setDeleteLoading(true);
+    await fetch(`${BACKEND_URL}/admin/vendors/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    setDeletingId(null);
+    setDeleteLoading(false);
     fetchVendors();
   }
 
@@ -374,13 +388,32 @@ export default function VendorsPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <button
-                        onClick={() => toggleStatus(vendor)}
-                        className="text-xs text-gray-400 hover:text-gray-700 font-medium px-3 py-1.5
-                                   rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        {vendor.status === "active" ? "Deactivate" : "Activate"}
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => toggleStatus(vendor)}
+                          className="text-xs text-gray-400 hover:text-gray-700 font-medium px-3 py-1.5
+                                     rounded-lg hover:bg-gray-100 transition-colors">
+                          {vendor.status === "active" ? "Deactivate" : "Activate"}
+                        </button>
+                        {deletingId === vendor.id ? (
+                          <div className="flex items-center gap-1 ml-1">
+                            <span className="text-xs text-gray-500">Delete?</span>
+                            <button onClick={() => deleteVendor(vendor.id)} disabled={deleteLoading}
+                              className="text-xs font-semibold text-red-600 hover:text-red-800 px-2 py-1 rounded-lg hover:bg-red-50 disabled:opacity-60">
+                              {deleteLoading ? "…" : "Yes"}
+                            </button>
+                            <button onClick={() => setDeletingId(null)}
+                              className="text-xs font-medium text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-100">
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => setDeletingId(vendor.id)}
+                            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Delete vendor">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

@@ -174,6 +174,75 @@ router.post("/assign-job", requireAdmin, async (req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// POST /admin/jobs  — create a job manually
+// ──────────────────────────────────────────────
+router.post("/jobs", requireAdmin, async (req, res) => {
+  const { title, description, location_city, location_state, work_type,
+          employment_type, start_date, num_positions, top_skills } = req.body;
+  if (!title) return res.status(400).json({ error: "title is required" });
+
+  const { data, error } = await supabaseAdmin.from("jobs").insert({
+    title,
+    description:     description     || null,
+    location_city:   location_city   || null,
+    location_state:  location_state  || null,
+    work_type:       work_type       || "onsite",
+    employment_type: employment_type || "contract",
+    start_date:      start_date      || null,
+    num_positions:   parseInt(num_positions) || 1,
+    top_skills:      Array.isArray(top_skills) ? top_skills : [],
+    status:          "active",
+    parsed_at:       new Date().toISOString(),
+  }).select().single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  console.log(`[admin] Job created manually: ${title}`);
+  res.status(201).json({ job: data });
+});
+
+// ──────────────────────────────────────────────
+// DELETE /admin/jobs/:id  — close (soft-delete) a job
+// ──────────────────────────────────────────────
+router.delete("/jobs/:id", requireAdmin, async (req, res) => {
+  const { error } = await supabaseAdmin
+    .from("jobs").update({ status: "closed" }).eq("id", req.params.id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+// ──────────────────────────────────────────────
+// DELETE /admin/vendors/:id  — delete vendor + auth user
+// ──────────────────────────────────────────────
+router.delete("/vendors/:id", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  // Find the Supabase Auth user(s) linked to this vendor
+  const { data: profiles } = await supabaseAdmin
+    .from("profiles").select("id").eq("vendor_id", id);
+
+  for (const p of (profiles ?? [])) {
+    const { error: delErr } = await supabaseAdmin.auth.admin.deleteUser(p.id);
+    if (delErr) console.warn(`[admin] Auth user delete failed: ${delErr.message}`);
+  }
+
+  const { error } = await supabaseAdmin.from("vendors").delete().eq("id", id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+// ──────────────────────────────────────────────
+// DELETE /admin/submissions/:id  — permanently remove a submission
+// ──────────────────────────────────────────────
+router.delete("/submissions/:id", requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  // Remove interviews first (FK constraint)
+  await supabaseAdmin.from("interviews").delete().eq("submission_id", id);
+  const { error } = await supabaseAdmin.from("submissions").delete().eq("id", id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+// ──────────────────────────────────────────────
 // GET /admin/vendors  (convenience endpoint for SSR or external tools)
 // ──────────────────────────────────────────────
 router.get("/vendors", requireAdmin, async (req, res) => {

@@ -412,16 +412,24 @@ function CandidateRow({ candidate, vendorId, onEdit, onRefresh }) {
   async function handleParseResume() {
     setParsing(true);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000); // 60s for cold start
       const res = await fetch(`${BACKEND_URL}/parse-resume`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ candidate_id: candidate.id }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Parse failed");
       onRefresh();
     } catch (err) {
-      alert(err.message);
+      if (err.name === "AbortError") {
+        alert("Request timed out. The server may be waking up — please try again in 30 seconds.");
+      } else {
+        alert(err.message);
+      }
     }
     setParsing(false);
   }

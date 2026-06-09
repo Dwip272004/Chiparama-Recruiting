@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
-import { Search, X, Send, Loader, Calendar, Plus, Download, Zap } from "lucide-react";
+import { Search, X, Send, Loader, Calendar, Plus, Download, Zap, Trash2, FileText } from "lucide-react";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:3001";
 
@@ -76,6 +76,7 @@ function ReviewModal({ sub, onClose, onSaved }) {
   const [showIntForm, setShowIntForm] = useState(false);
   const [scoring, setScoring]         = useState(false);
   const [matchResult, setMatchResult] = useState(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
   const field = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white";
 
   useEffect(() => { loadInterviews(); }, []);
@@ -124,19 +125,36 @@ function ReviewModal({ sub, onClose, onSaved }) {
     onSaved();
   }
 
+  async function viewResume() {
+    setResumeLoading(true);
+    const { data } = await supabase.storage
+      .from("resumes")
+      .createSignedUrl(sub.candidates.resume_path, 120);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    setResumeLoading(false);
+  }
+
   async function runMatchScore() {
     setScoring(true);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 60000);
       const resp = await fetch(`${BACKEND_URL}/match-score`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ submission_id: sub.id }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       const json = await resp.json();
       if (!resp.ok) throw new Error(json.error ?? "Scoring failed");
       setMatchResult(json);
     } catch (err) {
-      alert(err.message);
+      if (err.name === "AbortError") {
+        alert("Request timed out. The server may be waking up — please try again in 30 seconds.");
+      } else {
+        alert(err.message);
+      }
     }
     setScoring(false);
   }
@@ -191,10 +209,20 @@ function ReviewModal({ sub, onClose, onSaved }) {
                 <p className="text-gray-600 text-xs leading-relaxed">{sub.cover_note}</p>
               </div>
             )}
-            <div className="col-span-3 flex gap-4 text-xs text-gray-500">
+            <div className="col-span-3 flex items-center gap-4 text-xs text-gray-500">
               {sub.bill_rate && <span>Bill: <b className="text-gray-700">${sub.bill_rate}/{sub.rate_type}</b></span>}
               {sub.pay_rate  && <span>Pay: <b className="text-gray-700">${sub.pay_rate}/{sub.rate_type}</b></span>}
               {sub.availability_date && <span>Available: <b className="text-gray-700">{new Date(sub.availability_date).toLocaleDateString()}</b></span>}
+              {sub.candidates?.resume_path && (
+                <button onClick={viewResume} disabled={resumeLoading}
+                  className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg
+                             text-xs font-semibold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-colors disabled:opacity-60">
+                  {resumeLoading
+                    ? <Loader className="w-3.5 h-3.5 animate-spin" />
+                    : <FileText className="w-3.5 h-3.5" />}
+                  {resumeLoading ? "Opening…" : sub.candidates.resume_filename ?? "View Resume"}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -389,8 +417,9 @@ function ReviewModal({ sub, onClose, onSaved }) {
 }
 
 // ─── Submission Row ───────────────────────────────────────────
-function SubRow({ sub, onReview }) {
-  const [expanded, setExpanded] = useState(false);
+function SubRow({ sub, onReview, onDelete }) {
+  const [expanded, setExpanded]   = useState(false);
+  const [confirming, setConfirm]  = useState(false);
   return (
     <>
       <tr className="hover:bg-gray-50/50 transition-colors">
@@ -433,11 +462,32 @@ function SubRow({ sub, onReview }) {
           {new Date(sub.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
         </td>
         <td className="px-5 py-3.5 text-right">
-          <button onClick={() => onReview(sub)}
-            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-3 py-1.5
-                       rounded-lg hover:bg-indigo-50 transition-colors">
-            Review
-          </button>
+          <div className="flex items-center justify-end gap-1">
+            <button onClick={() => onReview(sub)}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-3 py-1.5
+                         rounded-lg hover:bg-indigo-50 transition-colors">
+              Review
+            </button>
+            {confirming ? (
+              <>
+                <span className="text-xs text-gray-500">Delete?</span>
+                <button onClick={() => onDelete(sub.id)}
+                  className="text-xs font-semibold text-red-600 hover:text-red-800 px-2 py-1 rounded-lg hover:bg-red-50">
+                  Yes
+                </button>
+                <button onClick={() => setConfirm(false)}
+                  className="text-xs font-medium text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-100">
+                  No
+                </button>
+              </>
+            ) : (
+              <button onClick={() => setConfirm(true)}
+                className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                title="Delete submission">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </td>
       </tr>
       {expanded && sub.internal_notes && (
@@ -454,6 +504,7 @@ function SubRow({ sub, onReview }) {
 
 // ─── Main Page ────────────────────────────────────────────────
 export default function SubmissionsPage() {
+  const { session }                   = useAuth();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
@@ -461,6 +512,14 @@ export default function SubmissionsPage() {
   const [reviewing, setReviewing]     = useState(null);
 
   useEffect(() => { load(); }, []);
+
+  async function deleteSubmission(id) {
+    await fetch(`${BACKEND_URL}/admin/submissions/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    setSubmissions(prev => prev.filter(s => s.id !== id));
+  }
 
   async function load() {
     setLoading(true);
@@ -470,7 +529,7 @@ export default function SubmissionsPage() {
         *,
         jobs(title),
         vendors(company_name),
-        candidates(first_name, last_name, current_title, work_authorization, experience_years, skills)
+        candidates(first_name, last_name, current_title, work_authorization, experience_years, skills, resume_path, resume_filename)
       `)
       .order("submitted_at", { ascending: false });
     setSubmissions(data ?? []);
@@ -564,7 +623,7 @@ export default function SubmissionsPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map(s => (
-                <SubRow key={s.id} sub={s} onReview={setReviewing} />
+                <SubRow key={s.id} sub={s} onReview={setReviewing} onDelete={deleteSubmission} />
               ))}
             </tbody>
           </table>
