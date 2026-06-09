@@ -5,10 +5,25 @@
 
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import { parseAndSaveJob } from "./parseJob.js";
 import { startPoller } from "./emailPoller.js";
+import adminRoutes     from "./adminRoutes.js";
+import resumeRoutes    from "./resumeRoutes.js";
+import submissionRoutes from "./submissionRoutes.js";
+import matchRoutes      from "./matchRoutes.js";
+import { verifyTransporter } from "./emailService.js";
 
 const app = express();
+
+// Allow requests from the frontend (dev + production)
+const FRONTEND_ORIGIN = process.env.FRONTEND_URL ?? "http://localhost:5173";
+app.use(cors({
+  origin: [FRONTEND_ORIGIN, "http://localhost:5173"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -19,6 +34,14 @@ const PORT = process.env.PORT ?? 3001;
 // Health check
 // ──────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// ──────────────────────────────────────────────
+// Admin API routes (JWT-protected)
+// ──────────────────────────────────────────────
+app.use("/admin", adminRoutes);
+app.use("/", submissionRoutes);
+app.use("/", matchRoutes);
+app.use("/", resumeRoutes);
 
 // ──────────────────────────────────────────────
 // Postmark inbound email webhook
@@ -86,7 +109,7 @@ function stripHtml(html = "") {
 
 app.listen(PORT, () => {
   console.log(`JD Parser server running on http://localhost:${PORT}`);
-  // Start IMAP poller in the same process (only if credentials are configured)
+  verifyTransporter();
   if (process.env.IMAP_HOST && process.env.IMAP_USER) {
     startPoller();
   }

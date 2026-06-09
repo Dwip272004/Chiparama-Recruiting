@@ -302,7 +302,14 @@ export function JobBoard() {
 
       {/* ── Detail modal ── */}
       {selectedJob && (
-        <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} />
+        <JobDetailModal
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          onUpdate={(updated) => {
+            setJobs(prev => prev.map(j => j.id === updated.id ? updated : j));
+            setSelectedJob(updated);
+          }}
+        />
       )}
     </div>
   );
