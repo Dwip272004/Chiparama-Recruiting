@@ -519,6 +519,64 @@ function CandidateRow({ candidate, vendorId, onEdit, onRefresh }) {
                 </div>
               )}
 
+              {/* AI Parsed Data */}
+              {candidate.resume_parsed && (
+                <div className="col-span-3 border-t border-indigo-100/60 pt-3 space-y-3">
+                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> AI Parsed Data
+                  </p>
+
+                  {/* Work Experience */}
+                  {candidate.parsed_experience?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Work Experience</p>
+                      <div className="space-y-1.5">
+                        {candidate.parsed_experience.map((e, i) => (
+                          <div key={i} className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                            <p className="text-xs font-semibold text-gray-800">{e.title}
+                              {e.company && <span className="font-normal text-gray-500"> · {e.company}</span>}
+                            </p>
+                            {(e.start || e.end) && (
+                              <p className="text-[11px] text-gray-400">{e.start}{e.end ? ` → ${e.end}` : ""}</p>
+                            )}
+                            {e.summary && <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">{e.summary}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Education */}
+                  {candidate.parsed_education?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Education</p>
+                      <div className="space-y-1">
+                        {candidate.parsed_education.map((e, i) => (
+                          <div key={i} className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                            <p className="text-xs font-semibold text-gray-800">{e.degree}</p>
+                            <p className="text-[11px] text-gray-500">{e.institution}{e.year ? ` · ${e.year}` : ""}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Certifications */}
+                  {candidate.parsed_certifications?.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Certifications</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {candidate.parsed_certifications.map((c, i) => (
+                          <span key={i} className="text-xs bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded-full">
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Resume actions */}
               <div className="col-span-3 flex items-center gap-3 pt-2 border-t border-indigo-100/60">
                 <label className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg
