@@ -116,19 +116,33 @@ router.post("/email-digest/sync", requireAdmin, async (req, res) => {
 
       for (const uid of allUids) {
         try {
-          const msg = await client.fetchOne(
+          // Step 1: fetch envelope only (cheap — no body download)
+          const header = await client.fetchOne(
             String(uid),
-            { envelope: true, source: true },
+            { envelope: true },
             { uid: true }
           );
 
-          const fromAddr = (msg.envelope?.from?.[0]?.address ?? "").toLowerCase();
+          const fromAddr = (header.envelope?.from?.[0]?.address ?? "").toLowerCase();
           if (!watchedEmails.includes(fromAddr)) continue;
 
-          const msgId = msg.envelope?.messageId ?? `uid-${uid}`;
+          // Stable ID: prefer Message-ID header, fall back to from+subject+date fingerprint
+          const rawMsgId = header.envelope?.messageId;
+          const msgId = rawMsgId
+            ? rawMsgId.replace(/[<>\s]/g, "")
+            : `${fromAddr}|${header.envelope?.subject ?? ""}|${header.envelope?.date?.toISOString() ?? uid}`;
+
+          // Step 2: skip if already processed — no body fetch, no AI call
           if (seenIds.has(msgId)) continue;
 
-          const parsed  = await simpleParser(msg.source);
+          // Step 3: only NOW download full body for genuinely new emails
+          const full = await client.fetchOne(
+            String(uid),
+            { source: true },
+            { uid: true }
+          );
+
+          const parsed  = await simpleParser(full.source);
           const bodyRaw = parsed.text?.trim() ||
             (parsed.html ?? "")
               .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -138,11 +152,11 @@ router.post("/email-digest/sync", requireAdmin, async (req, res) => {
 
           if (!bodyRaw || bodyRaw.length < 20) continue;
 
-          // AI summarize
+          // Step 4: AI summarize — only reached for new, unprocessed emails
           let aiResult = { summary: "", action_items: [] };
           try {
             aiResult = await aiDigestEmail({
-              subject: msg.envelope?.subject ?? "(no subject)",
+              subject: header.envelope?.subject ?? "(no subject)",
               from:    fromAddr,
               body:    bodyRaw,
             });
@@ -152,16 +166,16 @@ router.post("/email-digest/sync", requireAdmin, async (req, res) => {
           }
 
           const fromName = [
-            msg.envelope?.from?.[0]?.name,
-            msg.envelope?.from?.[0]?.address,
+            header.envelope?.from?.[0]?.name,
+            header.envelope?.from?.[0]?.address,
           ].filter(Boolean).join(" ").trim();
 
           await supabaseAdmin.from("email_digests").insert({
             message_id:   msgId,
             from_address: fromAddr,
             from_name:    fromName || fromAddr,
-            subject:      msg.envelope?.subject ?? "(no subject)",
-            received_at:  msg.envelope?.date ?? new Date().toISOString(),
+            subject:      header.envelope?.subject ?? "(no subject)",
+            received_at:  header.envelope?.date ?? new Date().toISOString(),
             body_text:    bodyRaw,
             summary:      aiResult.summary,
             action_items: aiResult.action_items,
