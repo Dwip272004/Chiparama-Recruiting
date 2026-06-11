@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
-import { Search, X, Send, Loader, Calendar, Plus, Download, Zap, Trash2, FileText } from "lucide-react";
+import { Search, X, Send, Loader, Calendar, Plus, Download, Zap, Trash2, FileText, MessageSquare } from "lucide-react";
+import ChatModal from "../../components/ChatModal";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:3001";
 
@@ -77,6 +78,7 @@ function ReviewModal({ sub, onClose, onSaved }) {
   const [scoring, setScoring]         = useState(false);
   const [matchResult, setMatchResult] = useState(null);
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [showChat, setShowChat]       = useState(false);
   const field = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white";
 
   useEffect(() => { loadInterviews(); }, []);
@@ -173,9 +175,20 @@ function ReviewModal({ sub, onClose, onSaved }) {
               {sub.candidates?.first_name} {sub.candidates?.last_name} → {sub.jobs?.title}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowChat(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                showChat
+                  ? "bg-indigo-600 text-white"
+                  : "border border-gray-200 text-indigo-600 hover:bg-indigo-50"
+              }`}>
+              <MessageSquare className="w-3.5 h-3.5" />
+              Chat
+            </button>
+            <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
 
         {/* Candidate summary */}
@@ -412,6 +425,16 @@ function ReviewModal({ sub, onClose, onSaved }) {
           </div>
         </form>
       </div>
+      {showChat && (
+        <ChatModal
+          candidateId={sub.candidates?.id ?? sub.candidate_id}
+          candidateName={`${sub.candidates?.first_name ?? ""} ${sub.candidates?.last_name ?? ""}`.trim()}
+          profile={profile}
+          session={session}
+          zIndex="z-[60]"
+          onClose={() => setShowChat(false)}
+        />
+      )}
     </div>
   );
 }
@@ -529,7 +552,7 @@ export default function SubmissionsPage() {
         *,
         jobs(title),
         vendors(company_name),
-        candidates(first_name, last_name, current_title, work_authorization, experience_years, skills, resume_path, resume_filename)
+        candidates(id, first_name, last_name, current_title, work_authorization, experience_years, skills, resume_path, resume_filename)
       `)
       .order("submitted_at", { ascending: false });
     setSubmissions(data ?? []);

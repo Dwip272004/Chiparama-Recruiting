@@ -5,8 +5,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import {
   Plus, Search, X, Loader, Users, Mail, Phone,
   ChevronDown, ChevronUp, Edit2, Upload, FileText,
-  Sparkles, ExternalLink, FileUp, AlertCircle, CheckCircle2
+  Sparkles, ExternalLink, FileUp, AlertCircle, CheckCircle2, MessageSquare
 } from "lucide-react";
+import ChatModal from "../../components/ChatModal";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:3001";
 
@@ -377,7 +378,7 @@ function CandidateModal({ candidate, vendorId, onClose, onSaved }) {
 }
 
 // ─── Candidate Row (expandable) ───────────────────────────────
-function CandidateRow({ candidate, vendorId, onEdit, onRefresh }) {
+function CandidateRow({ candidate, vendorId, onEdit, onRefresh, onChat }) {
   const { session } = useAuth();
   const [expanded, setExpanded]     = useState(false);
   const [uploading, setUploading]   = useState(false);
@@ -491,8 +492,14 @@ function CandidateRow({ candidate, vendorId, onEdit, onRefresh }) {
         <td className="px-5 py-3.5 text-right">
           <div className="flex items-center justify-end gap-1">
             <button onClick={e => { e.stopPropagation(); onEdit(candidate); }}
-              className="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors">
+              className="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors"
+              title="Edit candidate">
               <Edit2 className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={e => { e.stopPropagation(); onChat(candidate); }}
+              className="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors"
+              title="Chat with recruiter">
+              <MessageSquare className="w-3.5 h-3.5" />
             </button>
             {expanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
           </div>
@@ -625,13 +632,14 @@ function CandidateRow({ candidate, vendorId, onEdit, onRefresh }) {
 
 // ─── Main Page ────────────────────────────────────────────────
 export default function CandidatesPage() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
   const [showModal, setShowModal]     = useState(false);
   const [editing, setEditing]         = useState(null);
   const [showImport, setShowImport]   = useState(false);
+  const [chatCandidate, setChatCandidate] = useState(null);
 
   useEffect(() => { if (profile?.vendor_id) load(); }, [profile]);
 
@@ -710,7 +718,8 @@ export default function CandidatesPage() {
                 <CandidateRow key={c.id} candidate={c}
                   vendorId={profile.vendor_id}
                   onEdit={cand => { setEditing(cand); setShowModal(true); }}
-                  onRefresh={load} />
+                  onRefresh={load}
+                  onChat={cand => setChatCandidate(cand)} />
               ))}
             </tbody>
           </table>
@@ -732,6 +741,16 @@ export default function CandidatesPage() {
           profileId={profile.id}
           onClose={() => setShowImport(false)}
           onImported={() => { setShowImport(false); load(); }}
+        />
+      )}
+
+      {chatCandidate && (
+        <ChatModal
+          candidateId={chatCandidate.id}
+          candidateName={`${chatCandidate.first_name} ${chatCandidate.last_name}`}
+          profile={profile}
+          session={session}
+          onClose={() => setChatCandidate(null)}
         />
       )}
     </div>
