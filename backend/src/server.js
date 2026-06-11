@@ -8,10 +8,11 @@ import express from "express";
 import cors from "cors";
 import { parseAndSaveJob } from "./parseJob.js";
 import { startPoller } from "./emailPoller.js";
-import adminRoutes     from "./adminRoutes.js";
-import resumeRoutes    from "./resumeRoutes.js";
-import submissionRoutes from "./submissionRoutes.js";
-import matchRoutes      from "./matchRoutes.js";
+import adminRoutes       from "./adminRoutes.js";
+import resumeRoutes      from "./resumeRoutes.js";
+import submissionRoutes  from "./submissionRoutes.js";
+import matchRoutes       from "./matchRoutes.js";
+import emailDigestRoutes from "./emailDigestRoutes.js";
 import { verifyTransporter } from "./emailService.js";
 
 const app = express();
@@ -46,6 +47,7 @@ app.use("/admin", adminRoutes);
 app.use("/", submissionRoutes);
 app.use("/", matchRoutes);
 app.use("/", resumeRoutes);
+app.use("/", emailDigestRoutes);
 
 // ──────────────────────────────────────────────
 // Postmark inbound email webhook

@@ -1,7 +1,9 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Briefcase, Users, Send, BarChart2, LogOut, Building2
+  LayoutDashboard, Briefcase, Users, Send, BarChart2, LogOut, Building2, Inbox
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import NotificationBell from "../../components/NotificationBell";
 
@@ -11,11 +13,36 @@ const NAV = [
   { to: "/admin/vendors",     label: "Vendors",      icon: Users },
   { to: "/admin/submissions", label: "Submissions",  icon: Send },
   { to: "/admin/reports",     label: "Reports",       icon: BarChart2 },
+  { to: "/admin/email-digest", label: "Email Digest", icon: Inbox, badge: true },
 ];
 
 export default function AdminLayout() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const [unreadDigests, setUnreadDigests] = useState(0);
+
+  useEffect(() => {
+    // fetch unread count on mount
+    supabase
+      .from("email_digests")
+      .select("id", { count: "exact", head: true })
+      .eq("is_read", false)
+      .then(({ count }) => setUnreadDigests(count ?? 0));
+
+    // subscribe to new inserts / read updates
+    const channel = supabase
+      .channel("digest-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "email_digests" }, () => {
+        supabase
+          .from("email_digests")
+          .select("id", { count: "exact", head: true })
+          .eq("is_read", false)
+          .then(({ count }) => setUnreadDigests(count ?? 0));
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
 
   async function handleSignOut() {
     await signOut();
@@ -43,7 +70,7 @@ export default function AdminLayout() {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {NAV.map(({ to, label, icon: Icon, end, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -57,7 +84,13 @@ export default function AdminLayout() {
               }
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
+              <span className="flex-1">{label}</span>
+              {badge && unreadDigests > 0 && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold
+                                 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0">
+                  {unreadDigests > 9 ? "9+" : unreadDigests}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

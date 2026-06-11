@@ -9,6 +9,7 @@ import VendorsPage         from "./pages/admin/VendorsPage";
 import JobAssignPage       from "./pages/admin/JobAssignPage";
 import AdminSubmissionsPage from "./pages/admin/SubmissionsPage";
 import ReportsPage          from "./pages/admin/ReportsPage";
+import EmailDigestPage      from "./pages/admin/EmailDigestPage";
 import VendorLayout        from "./pages/vendor/VendorLayout";
 import VendorDashboard     from "./pages/vendor/VendorDashboard";
 import AssignedJobsPage    from "./pages/vendor/AssignedJobsPage";
@@ -31,8 +32,9 @@ export default function App() {
             <Route index               element={<AdminDashboard />} />
             <Route path="vendors"      element={<VendorsPage />} />
             <Route path="jobs"         element={<JobAssignPage />} />
-            <Route path="submissions"  element={<AdminSubmissionsPage />} />
-            <Route path="reports"      element={<ReportsPage />} />
+            <Route path="submissions"   element={<AdminSubmissionsPage />} />
+            <Route path="reports"       element={<ReportsPage />} />
+            <Route path="email-digest"  element={<EmailDigestPage />} />
           </Route>
 
           {/* Vendor portal */}
