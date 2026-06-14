@@ -12,7 +12,8 @@ import adminRoutes       from "./adminRoutes.js";
 import resumeRoutes      from "./resumeRoutes.js";
 import submissionRoutes  from "./submissionRoutes.js";
 import matchRoutes       from "./matchRoutes.js";
-import emailDigestRoutes from "./emailDigestRoutes.js";
+import emailDigestRoutes   from "./emailDigestRoutes.js";
+import reverseMatchRoutes  from "./reverseMatchRoutes.js";
 import { verifyTransporter } from "./emailService.js";
 
 const app = express();
@@ -48,6 +49,7 @@ app.use("/", submissionRoutes);
 app.use("/", matchRoutes);
 app.use("/", resumeRoutes);
 app.use("/", emailDigestRoutes);
+app.use("/", reverseMatchRoutes);
 
 // ──────────────────────────────────────────────
 // Postmark inbound email webhook

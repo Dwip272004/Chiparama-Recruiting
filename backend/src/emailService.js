@@ -189,6 +189,35 @@ export async function sendVendorWelcomeEmail({ to, vendorName, password }) {
   console.log(`[email] Welcome email → ${to}`);
 }
 
+export async function sendCandidateRequestEmail({ to, vendorName, candidateName, jobTitle, score }) {
+  const html = base(`
+    <h2 style="margin:0 0 8px;font-size:20px;color:#111827">Candidate Submission Request</h2>
+    <p style="margin:0 0 20px;color:#6b7280;font-size:14px">
+      Hi <strong>${vendorName}</strong>, we've identified a strong match from your talent pool.
+    </p>
+    <div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:12px;padding:20px;margin-bottom:20px">
+      <p style="margin:0 0 4px;font-size:12px;color:#6366f1;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Requested Candidate</p>
+      <p style="margin:0;font-size:18px;font-weight:700;color:#1e1b4b">${candidateName}</p>
+      ${score != null ? `<p style="margin:4px 0 0;font-size:13px;color:#4f46e5">AI Match Score: <strong>${score}/100</strong></p>` : ""}
+    </div>
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:20px">
+      <p style="margin:0 0 4px;font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.5px">For Job</p>
+      <p style="margin:0;font-size:16px;font-weight:600;color:#111827">${jobTitle}</p>
+    </div>
+    <p style="margin:0 0 24px;color:#374151;font-size:14px;line-height:1.6">
+      Our AI matching system has identified <strong>${candidateName}</strong> as a strong fit for
+      <strong>${jobTitle}</strong>. Please log in to the portal and submit this candidate at your earliest convenience.
+    </p>
+    <a href="${PORTAL}/vendor/candidates"
+       style="display:inline-block;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;
+              text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px">
+      Submit Candidate →
+    </a>
+  `);
+  await transporter.sendMail({ from: FROM, to, subject: `Submission Requested: ${candidateName} for ${jobTitle}`, html });
+  console.log(`[email] Candidate request email → ${to}`);
+}
+
 export async function verifyTransporter() {
   try {
     await transporter.verify();

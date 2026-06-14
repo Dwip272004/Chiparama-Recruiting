@@ -4,8 +4,9 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   MapPin, Calendar, Users, X, Loader, Search,
-  Plus, Check, Briefcase, Trash2, AlertTriangle
+  Plus, Check, Briefcase, Trash2, AlertTriangle, Zap
 } from "lucide-react";
+import JobMatchesModal from "../../components/JobMatchesModal";
 
 const WORK_BADGE = {
   onsite: "bg-emerald-100 text-emerald-700",
@@ -271,7 +272,8 @@ export default function JobAssignPage() {
   const [showAll, setShowAll]         = useState(false);
   const [activeJob, setActiveJob]     = useState(null);
   const [showCreate, setShowCreate]   = useState(false);
-  const [closingId, setClosingId]     = useState(null); // confirm state
+  const [closingId, setClosingId]     = useState(null);
+  const [matchesJob, setMatchesJob]   = useState(null); // job to show AI matches for
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -410,6 +412,15 @@ export default function JobAssignPage() {
                     <td className="px-5 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {!isClosed && (
+                          <button onClick={() => setMatchesJob(job)}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-purple-600
+                                       hover:text-purple-800 px-3 py-1.5 rounded-lg hover:bg-purple-50 transition-colors"
+                            title="AI-suggested candidates">
+                            <Zap className="w-3.5 h-3.5" />
+                            Suggested
+                          </button>
+                        )}
+                        {!isClosed && (
                           <button onClick={() => setActiveJob(job)}
                             className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600
                                        hover:text-indigo-800 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors">
@@ -460,6 +471,13 @@ export default function JobAssignPage() {
           existingAssignments={jobAssignments(activeJob.id)}
           onClose={() => setActiveJob(null)}
           onSaved={() => { setActiveJob(null); fetchAll(); }}
+        />
+      )}
+
+      {matchesJob && (
+        <JobMatchesModal
+          job={matchesJob}
+          onClose={() => setMatchesJob(null)}
         />
       )}
     </div>

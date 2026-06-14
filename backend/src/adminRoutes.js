@@ -174,6 +174,17 @@ router.post("/assign-job", requireAdmin, async (req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// Lazy import to avoid circular deps — loaded on first job creation
+let _scanCandidatesForJob;
+async function triggerScan(jobId) {
+  if (!_scanCandidatesForJob) {
+    ({ scanCandidatesForJob: _scanCandidatesForJob } = await import("./reverseMatchService.js"));
+  }
+  _scanCandidatesForJob(jobId).catch(err =>
+    console.warn("[reverse-match] Auto-scan failed:", err.message)
+  );
+}
+
 // POST /admin/jobs  — create a job manually
 // ──────────────────────────────────────────────
 router.post("/jobs", requireAdmin, async (req, res) => {
@@ -197,6 +208,8 @@ router.post("/jobs", requireAdmin, async (req, res) => {
 
   if (error) return res.status(400).json({ error: error.message });
   console.log(`[admin] Job created manually: ${title}`);
+  // Fire-and-forget reverse match scan
+  if (data?.id) triggerScan(data.id);
   res.status(201).json({ job: data });
 });
 
