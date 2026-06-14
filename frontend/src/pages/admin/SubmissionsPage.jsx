@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { apiFetch } from "../../lib/api";
 import { Search, X, Send, Loader, Calendar, Plus, Download, Zap, Trash2, FileText, MessageSquare } from "lucide-react";
 import ChatModal from "../../components/ChatModal";
 
@@ -110,9 +111,8 @@ function ReviewModal({ sub, onClose, onSaved }) {
 
   async function onSubmit(data) {
     setServerError("");
-    const resp = await fetch(`${BACKEND_URL}/submissions/update-stage`, {
+    const resp = await apiFetch("/submissions/update-stage", {
       method:  "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({
         submission_id:          sub.id,
         stage:                  data.stage,
@@ -141,9 +141,8 @@ function ReviewModal({ sub, onClose, onSaved }) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 60000);
-      const resp = await fetch(`${BACKEND_URL}/match-score`, {
+      const resp = await apiFetch("/match-score", {
         method:  "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ submission_id: sub.id }),
         signal: controller.signal,
       });
@@ -537,10 +536,7 @@ export default function SubmissionsPage() {
   useEffect(() => { load(); }, []);
 
   async function deleteSubmission(id) {
-    await fetch(`${BACKEND_URL}/admin/submissions/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    await apiFetch(`/admin/submissions/${id}`, { method: "DELETE" });
     setSubmissions(prev => prev.filter(s => s.id !== id));
   }
 

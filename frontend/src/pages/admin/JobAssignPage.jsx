@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { apiFetch } from "../../lib/api";
 import {
   MapPin, Calendar, Users, X, Loader, Search,
   Plus, Check, Briefcase, Trash2, AlertTriangle, Zap
@@ -30,9 +31,8 @@ function CreateJobModal({ onClose, onCreated }) {
       ? data.top_skills.split(",").map(s => s.trim()).filter(Boolean)
       : [];
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/jobs`, {
+      const res = await apiFetch("/admin/jobs", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ ...data, top_skills: skills }),
       });
       const json = await res.json();
@@ -153,9 +153,8 @@ function AssignModal({ job, vendors, existingAssignments, onClose, onSaved }) {
   async function onSubmit(formData) {
     setServerError("");
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/assign-job`, {
+      const res = await apiFetch("/admin/assign-job", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({
           job_id:          job.id,
           vendor_ids:      [...selected],
@@ -291,10 +290,7 @@ export default function JobAssignPage() {
   }
 
   async function closeJob(id) {
-    await fetch(`${BACKEND_URL}/admin/jobs/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    await apiFetch(`/admin/jobs/${id}`, { method: "DELETE" });
     setClosingId(null);
     fetchAll();
   }

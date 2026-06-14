@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { apiFetch } from "../../lib/api";
 import {
   Plus, Search, X, Loader, Users, Mail, Phone,
   ChevronDown, ChevronUp, Edit2, Upload, FileText,
@@ -415,9 +416,8 @@ function CandidateRow({ candidate, vendorId, onEdit, onRefresh, onChat }) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 60000); // 60s for cold start
-      const res = await fetch(`${BACKEND_URL}/parse-resume`, {
+      const res = await apiFetch("/parse-resume", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ candidate_id: candidate.id }),
         signal: controller.signal,
       });

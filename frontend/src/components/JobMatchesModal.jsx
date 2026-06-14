@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import { apiFetch } from "../lib/api";
 import {
   X, Zap, RefreshCw, Loader, Users, Star,
   CheckCircle2, AlertCircle, Send, ChevronDown, ChevronUp
@@ -121,27 +121,21 @@ function MatchCard({ match, onNotify, notifying }) {
 }
 
 export default function JobMatchesModal({ job, onClose }) {
-  const { session } = useAuth();
   const [matches,   setMatches]   = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [scanning,  setScanning]  = useState(false);
   const [notifying, setNotifying] = useState(null);
   const [pollCount, setPollCount] = useState(0);
 
-  const headers = {
-    Authorization: `Bearer ${session?.access_token}`,
-    "Content-Type": "application/json",
-  };
-
   const fetchMatches = useCallback(async () => {
-    const res = await fetch(`${BACKEND_URL}/reverse-match/${job.id}`, { headers });
+    const res = await apiFetch(`/reverse-match/${job.id}`);
     if (res.ok) {
       const data = await res.json();
       setMatches(data);
       return data.length;
     }
     return 0;
-  }, [job.id, session?.access_token]);
+  }, [job.id]);
 
   // On open: load existing matches, then poll if empty (scan may be running)
   useEffect(() => {
@@ -172,7 +166,7 @@ export default function JobMatchesModal({ job, onClose }) {
   async function handleScan() {
     setScanning(true);
     setMatches([]);
-    await fetch(`${BACKEND_URL}/reverse-match/${job.id}/scan`, { method: "POST", headers });
+    await apiFetch(`/reverse-match/${job.id}/scan`, { method: "POST" });
     // Poll for results
     const poll = async (attempt = 0) => {
       const count = await fetchMatches();
@@ -184,7 +178,7 @@ export default function JobMatchesModal({ job, onClose }) {
 
   async function handleNotify(matchId) {
     setNotifying(matchId);
-    const res = await fetch(`${BACKEND_URL}/reverse-match/${matchId}/notify`, { method: "POST", headers });
+    const res = await apiFetch(`/reverse-match/${matchId}/notify`, { method: "POST" });
     if (res.ok) {
       setMatches(prev =>
         prev.map(m => m.id === matchId ? { ...m, notified_at: new Date().toISOString() } : m)

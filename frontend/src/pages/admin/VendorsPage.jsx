@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { apiFetch } from "../../lib/api";
 import {
   Plus, Search, X, Loader, Users, Mail, Eye, EyeOff,
   RefreshCw, Copy, CheckCircle2, KeyRound, Trash2
@@ -131,12 +132,8 @@ function InviteModal({ onClose, onCreated }) {
   async function onSubmit(data) {
     setServerError("");
     try {
-      const res = await fetch(`${BACKEND_URL}/admin/vendors`, {
+      const res = await apiFetch("/admin/vendors", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
         body: JSON.stringify(data),
       });
       const json = await res.json();
@@ -275,10 +272,7 @@ export default function VendorsPage() {
 
   async function deleteVendor(id) {
     setDeleteLoading(true);
-    await fetch(`${BACKEND_URL}/admin/vendors/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    await apiFetch(`/admin/vendors/${id}`, { method: "DELETE" });
     setDeletingId(null);
     setDeleteLoading(false);
     fetchVendors();

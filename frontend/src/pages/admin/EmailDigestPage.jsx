@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../../contexts/AuthContext";
+import { apiFetch } from "../../lib/api";
 import {
   Mail, RefreshCw, Plus, X, Loader, ChevronDown, ChevronUp,
   Zap, AlertCircle, Clock, CheckCircle2, Inbox, Tag
 } from "lucide-react";
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:3001";
 
 const PRIORITY_STYLE = {
   high:   "bg-red-100 text-red-700",
@@ -125,7 +123,6 @@ function EmailCard({ digest, onMarkRead }) {
 
 // ─── Main Page ────────────────────────────────────────────────
 export default function EmailDigestPage() {
-  const { session } = useAuth();
   const [digests, setDigests]     = useState([]);
   const [senders, setSenders]     = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -137,8 +134,6 @@ export default function EmailDigestPage() {
   const [addingEmail, setAddingEmail] = useState(false);
   const [filter, setFilter]       = useState("all"); // "all" | "unread"
 
-  const headers = { Authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" };
-
   useEffect(() => {
     loadAll();
   }, []);
@@ -146,8 +141,8 @@ export default function EmailDigestPage() {
   async function loadAll() {
     setLoading(true);
     const [digestRes, senderRes] = await Promise.all([
-      fetch(`${BACKEND_URL}/email-digest`, { headers }),
-      fetch(`${BACKEND_URL}/email-digest/senders`, { headers }),
+      apiFetch("/email-digest"),
+      apiFetch("/email-digest/senders"),
     ]);
     setDigests(digestRes.ok ? await digestRes.json() : []);
     setSenders(senderRes.ok ? await senderRes.json() : []);
@@ -158,7 +153,7 @@ export default function EmailDigestPage() {
     setSyncing(true);
     setSyncMsg(null);
     try {
-      const res = await fetch(`${BACKEND_URL}/email-digest/sync`, { method: "POST", headers });
+      const res = await apiFetch("/email-digest/sync", { method: "POST" });
       const json = await res.json();
       setSyncMsg(json.message ?? "Done.");
       await loadDigests();
@@ -169,22 +164,21 @@ export default function EmailDigestPage() {
   }
 
   async function loadDigests() {
-    const res = await fetch(`${BACKEND_URL}/email-digest`, { headers });
+    const res = await apiFetch("/email-digest");
     if (res.ok) setDigests(await res.json());
   }
 
   async function markRead(id) {
     setDigests(prev => prev.map(d => d.id === id ? { ...d, is_read: true } : d));
-    fetch(`${BACKEND_URL}/email-digest/${id}/read`, { method: "PATCH", headers }).catch(() => {});
+    apiFetch(`/email-digest/${id}/read`, { method: "PATCH" }).catch(() => {});
   }
 
   async function addSender(e) {
     e.preventDefault();
     if (!newEmail.trim()) return;
     setAddingEmail(true);
-    const res = await fetch(`${BACKEND_URL}/email-digest/senders`, {
+    const res = await apiFetch("/email-digest/senders", {
       method: "POST",
-      headers,
       body: JSON.stringify({ email: newEmail.trim(), label: newLabel.trim() || undefined }),
     });
     if (res.ok) {
@@ -197,7 +191,7 @@ export default function EmailDigestPage() {
   }
 
   async function removeSender(id) {
-    await fetch(`${BACKEND_URL}/email-digest/senders/${id}`, { method: "DELETE", headers });
+    await apiFetch(`/email-digest/senders/${id}`, { method: "DELETE" });
     setSenders(prev => prev.filter(s => s.id !== id));
   }
 
